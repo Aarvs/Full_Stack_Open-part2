@@ -3,6 +3,7 @@ import axios from "axios";
 import Person from "./components/person";
 import Filter from "./components/filter";
 import PersonForm from "./components/personForm";
+import userData from "./services/userData";
 
 const App = () => {
   const [persons, setPersons] = useState([]);
@@ -22,24 +23,45 @@ const App = () => {
 
   const handleFormChange = (event) => {
     event.preventDefault();
-
-    const nameExists = persons.some((person) => person.name === newName);
-    console.log(nameExists);
-    if (newName === "" || newNumber === "") {
-      alert("fill out your fields properly");
-    } else if (nameExists) {
-      alert(`${newName} is already added to phonebook`);
+    
+    const existingPerson = persons.find((person) => person.name === newName);
+  
+    if (existingPerson) {
+      if (existingPerson.number !== newNumber) {
+        const shouldUpdate = window.confirm(
+          `${newName} is already added to the phonebook, replace the old number with a new one?`
+        );
+  
+        if (shouldUpdate) {
+          const updatedPerson = { ...existingPerson, number: newNumber };
+  
+          userData
+            .update(existingPerson.id, updatedPerson)
+            .then(returnNode => {
+              setPersons(persons.map(person => person.id !== existingPerson.id ? person : returnNode));
+            });
+        }
+      } else {
+        alert(`${newName} is already added to the phonebook with the same number.`);
+      }
     } else {
       const person = {
         name: newName,
-        id: newName,
         number: newNumber,
       };
-      setPersons(persons.concat(person));
-      setNewName("");
-      setNewNumber("");
+  
+      userData
+        .create(person)
+        .then(returnNode => {
+          setPersons(persons.concat(returnNode));
+        });
     }
+  
+    setNewName("");
+    setNewNumber("");
   };
+  
+  
 
   const handleNoteChange = (event) => {
     console.log(event.target.value);
@@ -54,6 +76,15 @@ const App = () => {
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
   };
+
+  const handleDeletion = id => {
+    userData
+    .remove(id)
+    .then(deleteItem => {
+      console.log(deleteItem)
+      setPersons(persons.filter(person => person.id !== id))
+    })
+  }
 
   const filteredPersons = persons.filter((person) =>
     person.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -76,7 +107,7 @@ const App = () => {
       <h2>Numbers</h2>
 
       {filteredPersons.map((person) => (
-        <Person key={person.id} person={person} />
+        <Person key={person.id} person={person} handleDeletion={handleDeletion} />
       ))}
     </div>
   );
